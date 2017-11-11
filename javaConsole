@@ -1,0 +1,74 @@
+#!/bin/bash
+ulimit -n 200000
+JAVA=/usr/bin/java
+BASENAME=nct.axem.profile.service
+BASEDIR=/nctserver/phong/nct.axem.profile/service
+SERVICEDAEMON=com.nct.axem.profile.model.service.TAxemProfileDaemon
+
+JMXHOST=192.168.100.37
+JMXPORT=4532
+APPENV=development
+XMS=1G
+PIDFILE=$BASEDIR/tmp/$BASENAME.pid
+JVM_OPTS="-Xmx$XMS -XX:SurvivorRatio=128 -XX:TargetSurvivorRatio=90 -XX:+AggressiveOpts -XX:+UseParNewGC -XX:+UseConcMarkSweepGC -XX:+CMSParallelRemarkEnabled -XX:MaxTenuringThreshold=0 -Djava.rmi.server.hostname=$JMXHOST -Dcom.sun.management.jmxremote.port=$JMXPORT -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dapppath=$BASEDIR -Dappenv=$APPENV"
+
+CLASSPATH=$BASEDIR/conf:$BASEDIR/bin
+
+for jar in $BASEDIR/lib/*.jar; do
+    CLASSPATH=$CLASSPATH:$jar
+done
+
+for jar in $BASEDIR/*.jar; do
+    CLASSPATH=$CLASSPATH:$jar
+done
+
+JVM_OPTS="$JVM_OPTS -cp $CLASSPATH $SERVICEDAEMON"
+
+function _start()
+{
+	echo -n "Starting $BASENAME: "
+	start-stop-daemon --start --background --quiet --make-pidfile --pidfile $PIDFILE --exec $JAVA -- ${JVM_OPTS} 
+	if [ "$?" -eq "0" ];then
+		echo "OK"
+	else 
+		echo "FAIL"
+	fi
+}
+
+function _debug()
+{
+        echo -n "Starting $BASENAME in debug mode"
+        start-stop-daemon --start --quiet --make-pidfile --pidfile $PIDFILE --exec $JAVA -- ${JVM_OPTS}
+}
+
+function _stop()
+{
+	echo -n "Stoping $BASENAME: "
+	start-stop-daemon --stop --quiet --pidfile $PIDFILE
+        if [ "$?" -eq "0" ];then
+                echo "OK"
+        else
+                echo "FAIL"
+        fi
+}	
+
+case "$1" in
+	start)
+		_start
+		;;
+	stop)
+		_stop
+		;;
+	debug)
+		_debug
+		;;
+	restart)
+		_stop
+		sleep 3
+		_start
+		;;
+	*)
+		echo "Usage: ./javaConsole {start|stop|debug|restart}"
+		exit 1
+
+esac
